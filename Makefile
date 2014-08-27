@@ -26,8 +26,9 @@ OBJS = $(SRC:.cc=.o)
 
 ## flags
 CFLAGS += -std=c99
-CXXFLAGS += -Iinclude -Izmq/include -Iv8/include
+CXXFLAGS += -Iinclude -Idegossip -Izmq/include -Iv8/include
 CXXFLAGS += -std=gnu++11
+
 ifdef D
 	CXXFLAGS += -DDG_JS_PATH='"$(CWD)/degossip/dg.js"'
 else

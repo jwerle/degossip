@@ -3,7 +3,12 @@
 #include <stdlib.h>
 
 #include "degossip.h"
+#include "bindings.h"
 #include "javascript.h"
+
+#ifndef DG_JS_PATH
+#define DG_JS_PATH ""
+#endif
 
 dg_t *
 dg_alloc (int argc, char **argv, char **env) {
@@ -30,11 +35,16 @@ dg_alloc (int argc, char **argv, char **env) {
   // global
   v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New(
       self->isolate);
+  self->global = global;
+
+  // bindings
+  dg_v8_bindings_init(self);
 
   // context
   v8::Handle<v8::Context> context = v8::Context::New(
       self->isolate, NULL, global);
   v8::Context::Scope context_scope(context);
+
 
   // runtime
   context->Enter();

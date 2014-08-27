@@ -10,6 +10,7 @@
 
 typedef struct {
   v8::Isolate *isolate;
+  v8::Handle<v8::ObjectTemplate> global;
   int argc;
   char **argv;
   char **env;
