@@ -43,8 +43,8 @@ dg_alloc (int argc, char **argv, char **env) {
   // context
   v8::Handle<v8::Context> context = v8::Context::New(
       self->isolate, NULL, global);
+  v8::Persistent<v8::Context> persistent_context(self->isolate, context);
   v8::Context::Scope context_scope(context);
-
 
   // runtime
   context->Enter();

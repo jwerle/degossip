@@ -8,4 +8,7 @@
 int
 dg_script (dg_t *, const char *);
 
+void
+dg_script_report_exception (v8::Isolate *, v8::TryCatch *);
+
 #endif

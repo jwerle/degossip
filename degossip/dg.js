@@ -12,6 +12,7 @@ module dg {
    */
 
   export print
+  export thread
 
   /**
    * Print string to stdout
@@ -25,16 +26,68 @@ module dg {
     write(stdout, string, string.length);
   }
 
-  print("foo");
+  /**
+   * Print string to stderr
+   *
+   * @api public
+   * @param {String} string
+   */
 
-  var thread = Thread(function (arg) {
-    print("in thread");
-    print(arg);
+  function error (string) {
+    string = String(string) + '\n';
+    write(stderr, string, string.length);
+  }
+
+  /**
+   * `thread' module
+   *
+   * @api public
+   */
+
+  module thread {
+
+    /**
+     * Spawn a thread running
+     * `fn' with optional `arg'
+     *
+     * @api public
+     * @param {Function} fn
+     * @param {Mixed} arg - optional
+     */
+
+    export function spawn (fn, arg) {
+      create(fn)(arg);
+      return thread;
+    }
+
+    /**
+     * Creates a function that executes
+     * `fn' in a separate thread accepting
+     * optional `arg' passed to `fn'
+     *
+     * @api public
+     * @param {Function} fn
+     */
+
+    export function create (fn) {
+      let th = new Thread((arg) => {
+        try { fn.call(th, arg); }
+        catch (e) { error(e.stack); }
+      });
+
+      return (arg) => { return th.run(arg); };
+    }
+  }
+}
+
+module test {
+  let spawn = dg.thread.spawn;
+  let print = dg.print;
+
+  spawn(() => {
+    print('hello');
+    spawn(() => { print('goodbye'); });
+    spawn(() => { print('world'); });
   });
-
-
-  print("a");
-  thread.run("hi");
-  print("b");
 }
 

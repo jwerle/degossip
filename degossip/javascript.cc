@@ -9,9 +9,6 @@
 
 #define cstr(v) (*v? *v : "")
 
-static void
-report_exception (v8::TryCatch *);
-
 int
 dg_script (dg_t *dg, const char *path) {
   // file
@@ -66,7 +63,7 @@ dg_script (dg_t *dg, const char *path) {
   src = NULL;
 
   if (script.IsEmpty()) {
-    report_exception(&tc);
+    dg_script_report_exception(isolate, &tc);
     return 1;
   }
 
@@ -76,7 +73,7 @@ dg_script (dg_t *dg, const char *path) {
   // face palm
   if (result.IsEmpty()) {
     if (tc.HasCaught()) {
-      report_exception(&tc);
+      dg_script_report_exception(isolate, &tc);
       return 1;
     }
   }
@@ -84,12 +81,10 @@ dg_script (dg_t *dg, const char *path) {
   return 0;
 }
 
-static void
-report_exception (v8::TryCatch *tc) {
-  // isolate
-  v8::Isolate *isolate = v8::Isolate::GetCurrent();
-
+void
+dg_script_report_exception (v8::Isolate *isolate, v8::TryCatch *tc) {
   // scope
+  v8::Isolate::Scope isolate_scope(isolate);
   v8::HandleScope handle_scope(isolate);
 
   // exception string

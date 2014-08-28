@@ -4,16 +4,23 @@
 
 #include <v8.h>
 #include <pthread.h>
+#include <vector>
 
-typedef struct {
+typedef struct dg_v8_thread_context_t {
   pthread_mutex_t lock;
   pthread_cond_t signal;
   pthread_t thread;
   v8::Isolate *isolate;
-  //v8::Handle<v8::Function> *fn;
+
+  std::vector<
+    v8::Persistent<
+      v8::Function,
+      v8::CopyablePersistentTraits<v8::Function>>> fn;
+
   v8::Persistent<
-    v8::Function,
-    v8::CopyablePersistentTraits<v8::Function>> *fn;
+    v8::Value,
+    v8::CopyablePersistentTraits<v8::Value>> data;
+
 } dg_v8_thread_context_t;
 
 void
