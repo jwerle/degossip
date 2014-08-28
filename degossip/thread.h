@@ -6,7 +6,8 @@
 #include <pthread.h>
 #include <vector>
 
-typedef struct dg_v8_thread_context_t {
+typedef struct dg_v8_thread_context_t dg_v8_thread_context_t;
+struct dg_v8_thread_context_t {
   pthread_mutex_t lock;
   pthread_cond_t signal;
   pthread_t thread;
@@ -21,12 +22,22 @@ typedef struct dg_v8_thread_context_t {
     v8::Value,
     v8::CopyablePersistentTraits<v8::Value>> data;
 
-} dg_v8_thread_context_t;
+  v8::Persistent<
+    v8::Object,
+    v8::CopyablePersistentTraits<v8::Object>> ref;
+
+};
 
 void
 dg_v8_thread_create_context (const v8::FunctionCallbackInfo<v8::Value> &);
 
 void
 dg_v8_thread_run (const v8::FunctionCallbackInfo<v8::Value> &);
+
+void
+dg_v8_thread_wait (const v8::FunctionCallbackInfo<v8::Value> &);
+
+void
+dg_v8_thread_exit (const v8::FunctionCallbackInfo<v8::Value> &);
 
 #endif

@@ -12,6 +12,7 @@ module dg {
    */
 
   export print
+  export error
   export thread
 
   /**
@@ -56,8 +57,7 @@ module dg {
      */
 
     export function spawn (fn, arg) {
-      create(fn)(arg);
-      return thread;
+      return create(fn)(arg);
     }
 
     /**
@@ -81,13 +81,41 @@ module dg {
 }
 
 module test {
-  let spawn = dg.thread.spawn;
-  let print = dg.print;
 
-  spawn(() => {
-    print('hello');
-    spawn(() => { print('goodbye'); });
-    spawn(() => { print('world'); });
-  });
+  export function main () {
+    let spawn = dg.thread.spawn;
+    let print = dg.print;
+    let threads = [];
+    const MAX_THREADS = 5;
+    const MAX_RECV = 10;
+
+    /*
+    spawn(() => {
+      for (var i = 0; i < MAX_THREADS; ++i) {
+        let th = spawn((n) => {
+          var a = {count: 0};
+          while (a.count < MAX_RECV) {
+            spawn((_) => {
+              _.count++;
+              print('[thread#'+ n +'('+ _.count +')]: '+ read(stdin, 1024));
+              this.exit();
+            }, a);
+          }
+        }, i);
+      }
+    }).wait();
+   */
+
+    spawn(() => {
+      let buf = null;
+      while ((buf = read(stdin, 1024))) {
+        print(buf);
+      }
+    }).wait();
+
+  }
 }
 
+// run this shit!
+try { test.main(); }
+catch (e) { dg.error(e.stack); }

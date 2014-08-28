@@ -2,7 +2,7 @@
 ## system dependencies
 OS ?= $(shell uname)
 CC ?= gcc
-CXX ?= g++
+CXX = g++
 LD ?= ld
 AR ?= ar
 RM ?= rm -f
@@ -29,6 +29,9 @@ CFLAGS += -std=c99
 CXXFLAGS += -Iinclude -Idegossip -Izmq/include -Iv8/include
 CXXFLAGS += -std=gnu++11
 
+LDFLAGS += -L$(CWD)/zmq/src/.libs
+LDFLAGS += -lzmq
+
 ifdef D
 	CXXFLAGS += -DDG_JS_PATH='"$(CWD)/degossip/dg.js"'
 else
@@ -42,7 +45,7 @@ else
 endif
 
 ## dependencies
-ZMQ ?= zmq/src/.libs/*.a
+ZMQ ?= $(shell ls zmq/src/.libs/*.a)
 V8 ?= $(shell ls v8/out/native/{libv8_base,libv8_libbase,libv8_snapshot}.a)
 
 ## Target libs
@@ -51,7 +54,7 @@ TARGET_STATIC = $(TARGET_NAME).a
 
 .PHONY: $(BIN)
 $(MAIN): build $(TARGET_STATIC)
-	$(CXX) $(CXXFLAGS) $(OUT)/$(TARGET_STATIC) $(ZMQ) $(V8) $(MAIN) -o $(OUT)/$(BIN)
+	$(CXX) $(OUT)/$(TARGET_STATIC) $(V8) $(MAIN) $(CXXFLAGS) $(LDFLAGS) -o $(OUT)/$(BIN)
 
 .PHONY: $(OUT)
 build: $(OUT)

@@ -32,21 +32,26 @@ onthread (void *data) {
   v8::Isolate::Scope isolate_scope(isolate);
   v8::HandleScope handle_scope(isolate);
 
-  v8::Persistent<
-    v8::Function,
-    v8::CopyablePersistentTraits<v8::Function>> ref = ctx->fn.back();
-  v8::Local<v8::Function> cb = v8::Local<v8::Function>::New(isolate, ref);
-
   v8::TryCatch tc;
 
+  // callback
+  v8::Persistent<
+    v8::Function,
+    v8::CopyablePersistentTraits<v8::Function>> fn = ctx->fn.back();
+  v8::Local<v8::Function> cb = v8::Local<v8::Function>::New(isolate, fn);
+
+  // argument
   v8::Handle<v8::Value> args[1];
   v8::Local<v8::Value> arg = v8::Local<v8::Value>::New(isolate, ctx->data);
   args[0] = arg;
 
+  // self
+  v8::Local<v8::Object> ref = v8::Local<v8::Object>::New(isolate, ctx->ref);
+
   struct timespec req {.tv_sec = 0, .tv_nsec = 2000};
   struct timespec rem;
 
-  cb->Call(cb, 1, args);
+  cb->Call(ref, 1, args);
 
   if (tc.HasCaught()) {
      //@TODO - handle exception
@@ -82,7 +87,7 @@ dg_v8_thread_create_context (const v8::FunctionCallbackInfo<v8::Value> &argument
     return;
   }
 
-  // get `this'
+  // ensure instance
   if (!arguments.IsConstructCall()) {
     v8::Handle<v8::Value> args[1];
     args[0] = arguments[0];
@@ -105,11 +110,17 @@ dg_v8_thread_create_context (const v8::FunctionCallbackInfo<v8::Value> &argument
 
   // persistent callback wrap
   v8::Persistent<v8::Function,
-    v8::CopyablePersistentTraits<v8::Function>> ref(isolate, cb);
+    v8::CopyablePersistentTraits<v8::Function>> fn(isolate, cb);
+
+  // persistent reference to self
+  v8::Persistent<v8::Object,
+    v8::CopyablePersistentTraits<v8::Object>> ref(
+        isolate, self);
 
   // attach
-  ctx->fn.push_back(ref);
+  ctx->fn.push_back(fn);
   ctx->isolate = isolate;
+  ctx->ref = ref;
 
   // wrap
   self->SetInternalField(0, v8::External::New(isolate, ctx));
@@ -122,46 +133,129 @@ dg_v8_thread_create_context (const v8::FunctionCallbackInfo<v8::Value> &argument
 
 void
 dg_v8_thread_run (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
+  // context to unwrap
   dg_v8_thread_context_t *ctx = NULL;
-
-  // `this'
-  v8::Handle<v8::Object> self;
 
   // isolate
   v8::Isolate *isolate = arguments.GetIsolate();
+
+  // lock isolate
   v8::Locker lock(isolate);
 
   // scope
   V8SCOPE(arguments);
 
+  // `this'
+  v8::Handle<v8::Object> self;
+
   if (arguments.IsConstructCall()) {
     V8THROW("Invalid `this' receiver.");
+    v8::Unlocker unlock(isolate);
     return;
   }
 
   // `this'
   self = arguments.This();
 
-  // arg
+  // unwrap
   ctx = (dg_v8_thread_context_t *) V8UNWRAP(self);
 
+  // persist data for thread
   v8::Persistent<v8::Value,
     v8::CopyablePersistentTraits<v8::Value>> data(
         isolate, arguments[0]);
 
+  // attach
   ctx->data = data;
 
+  // unlock isolate
+  v8::Unlocker unlock(isolate);
+
+  // create thread
   if (0 != pthread_create(&ctx->thread, NULL, &onthread, ctx)) {
     V8THROW("Error creating execution thread in context.");
+  }
+
+  // return `this'
+  V8RETURN(arguments, self);
+}
+
+void
+dg_v8_thread_wait (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
+  // context to unwrap
+  dg_v8_thread_context_t *ctx = NULL;
+
+  // isolate
+  v8::Isolate *isolate = arguments.GetIsolate();
+
+  // lock isolate
+  v8::Locker lock(isolate);
+
+  // scope
+  V8SCOPE(arguments);
+
+  // `this'
+  v8::Handle<v8::Object> self;
+
+  if (arguments.IsConstructCall()) {
+    V8THROW("Invalid `this' receiver.");
+    v8::Unlocker unlock(isolate);
     return;
   }
+
+  // `this'
+  self = arguments.This();
+
+  // unwrap
+  ctx = (dg_v8_thread_context_t *) V8UNWRAP(self);
 
   // unlock isolate
   v8::Unlocker unlock(isolate);
 
   if (0 != pthread_join(ctx->thread, NULL)) {
-    V8THROW("Error joining thread in context.");
-    return;
+    V8THROW("Failed to join thread in context");
   }
+
+  // return `this'
+  V8RETURN(arguments, self);
 }
 
+void
+dg_v8_thread_exit (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
+  // context to unwrap
+  dg_v8_thread_context_t *ctx = NULL;
+
+  // isolate
+  v8::Isolate *isolate = arguments.GetIsolate();
+
+  // lock isolate
+  v8::Locker lock(isolate);
+
+  // scope
+  V8SCOPE(arguments);
+
+  // `this'
+  v8::Handle<v8::Object> self;
+
+  if (arguments.IsConstructCall()) {
+    V8THROW("Invalid `this' receiver.");
+    v8::Unlocker unlock(isolate);
+    return;
+  }
+
+  // `this'
+  self = arguments.This();
+
+  // unwrap
+  ctx = (dg_v8_thread_context_t *) V8UNWRAP(self);
+
+  // unlock isolate
+  v8::Unlocker unlock(isolate);
+
+  // exit
+  pthread_exit(ctx->thread);
+
+  // return `this'
+  V8RETURN(arguments, self);
+
+}
