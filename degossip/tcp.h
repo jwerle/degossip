@@ -16,4 +16,16 @@ dg_v8_tcp_create_context (const v8::FunctionCallbackInfo<v8::Value> &);
 void
 dg_v8_tcp_create_socket (const v8::FunctionCallbackInfo<v8::Value> &);
 
+void
+dg_v8_tcp_socket_bind (const v8::FunctionCallbackInfo<v8::Value> &);
+
+void
+dg_v8_tcp_socket_recv (const v8::FunctionCallbackInfo<v8::Value> &);
+
+void
+dg_v8_tcp_socket_send (const v8::FunctionCallbackInfo<v8::Value> &);
+
+void
+dg_v8_tcp_socket_close (const v8::FunctionCallbackInfo<v8::Value> &);
+
 #endif

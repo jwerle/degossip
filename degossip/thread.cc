@@ -257,5 +257,4 @@ dg_v8_thread_exit (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
 
   // return `this'
   V8RETURN(arguments, self);
-
 }
