@@ -157,8 +157,8 @@ dg_v8_tcp_socket_recv (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
   // `this'
   v8::Handle<v8::Object> self = arguments.This();
 
-  if (1 != arguments.Length()) {
-    V8THROW("Expecting 1 argument.");
+  if (0 == arguments.Length()) {
+    V8THROW("Expecting atleast 1 argument.");
     v8::Unlocker unlock(isolate);
     return;
   }
@@ -175,10 +175,16 @@ dg_v8_tcp_socket_recv (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
   // return value
   v8::Handle<v8::Value> ret;
 
+  // flags
+  int flags = arguments[1]->ToNumber()->Int32Value();
+
   // read
-  size_t nread = zmq_recv(socket, buf, size, 0);
+  size_t nread = zmq_recv(socket, buf, size, flags);
   if (-1 == nread) {
-    V8THROW(strerror(errno));
+    nread = 0;
+    if (ZMQ_DONTWAIT != (flags & ZMQ_DONTWAIT)) {
+      V8THROW(strerror(errno));
+    }
   }
 
   buf[nread] = '\0';
@@ -189,11 +195,67 @@ dg_v8_tcp_socket_recv (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
     ret = V8NULL();
   }
 
-  //printf("%s\n", buf);
-  //printf("%zu %zu %s\n", size, nread, buf);
-
   // unlock isolate
   v8::Unlocker unlock(isolate);
 
   V8RETURN(arguments, ret);
 }
+
+void
+dg_v8_tcp_socket_send (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
+}
+
+void
+dg_v8_tcp_socket_close (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
+  // isolate
+  v8::Isolate *isolate = arguments.GetIsolate();
+
+  // lock
+  v8::Locker lock(isolate);
+
+  // scope
+  v8::Isolate::Scope isolate_scope(isolate);
+  v8::HandleScope handle_scope(isolate);
+
+  // `this'
+  v8::Handle<v8::Object> self = arguments.This();
+
+  // unwrap
+  void *socket = (void *) V8UNWRAP(self);
+
+  // unlock isolate
+  v8::Unlocker unlock(isolate);
+
+  // close
+  zmq_close(socket);
+
+  V8RETURN(arguments, self);
+}
+
+void
+dg_v8_tcp_destroy_context (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
+  // isolate
+  v8::Isolate *isolate = arguments.GetIsolate();
+
+  // lock
+  v8::Locker lock(isolate);
+
+  // scope
+  v8::Isolate::Scope isolate_scope(isolate);
+  v8::HandleScope handle_scope(isolate);
+
+  // `this'
+  v8::Handle<v8::Object> self = arguments.This();
+
+  // unwrap
+  dg_v8_tcp_context_t *ctx = (dg_v8_tcp_context_t *) V8UNWRAP(self);
+
+  // unlock isolate
+  v8::Unlocker unlock(isolate);
+
+  // destroy
+  zmq_ctx_destroy(ctx);
+
+  V8RETURN(arguments, self);
+}
+

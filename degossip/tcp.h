@@ -14,6 +14,9 @@ void
 dg_v8_tcp_create_context (const v8::FunctionCallbackInfo<v8::Value> &);
 
 void
+dg_v8_tcp_destroy_context (const v8::FunctionCallbackInfo<v8::Value> &);
+
+void
 dg_v8_tcp_create_socket (const v8::FunctionCallbackInfo<v8::Value> &);
 
 void

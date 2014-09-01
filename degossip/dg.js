@@ -6,6 +6,9 @@
 this.global = this;
 GeneratorFunction = (function * () {}).constructor;
 
+Function.prototype.toString =
+Function.prototype.toJSON = () => '[Function'+ (this.name ? ': '+ this.name : '') +']';
+
 /**
  * `degossip' interface
  *
@@ -19,6 +22,7 @@ module dg {
   let unshift = bind(Array.prototype.unshift);
   let pop = bind(Array.prototype.pop);
   let each = bind(Array.prototype.forEach);
+  let slice = bind(Array.prototype.slice);
 
   /**
    * Creates a generator context or wraps
@@ -33,7 +37,7 @@ module dg {
 
     // wrap non generator function
     if (!(fn instanceof GeneratorFunction)) {
-      return function () {
+      return () => {
         unshift(arguments, null);
         return fn.bind.apply(fn, arguments);
       }
@@ -44,15 +48,10 @@ module dg {
 
     // callback loop
     void function next (err, value) {
-      if (err) {
-        throw err;
-        return gen.throw(err);
-      }
-      var ret = gen.next(value);
-
-      if (!ret.done) {
-        ret.value(next);
-      }
+      var ret = null;
+      if (err) { return gen.throw(err); }
+      ret = gen.next(value);
+      if (!ret.done) { ret.value(next); }
     }();
   }
 
@@ -89,46 +88,6 @@ module dg {
   export function init () {
     globals.init();
     loop.run();
-  }
-
-  /**
-   * `thread' module
-   *
-   * @api public
-   */
-
-  export module thread {
-
-    /**
-     * Spawn a thread running
-     * `fn' with optional `arg'
-     *
-     * @api public
-     * @param {Function} fn
-     * @param {Mixed} arg - optional
-     */
-
-    export function spawn (fn, arg) {
-      return create(fn)(arg);
-    }
-
-    /**
-     * Creates a function that executes
-     * `fn' in a separate thread accepting
-     * optional `arg' passed to `fn'
-     *
-     * @api public
-     * @param {Function} fn
-     */
-
-    export function create (fn) {
-      let th = new Thread((arg) => {
-        try { fn.call(th, arg); }
-        catch (e) { error(e.stack); }
-      });
-
-      return arg => th.run(arg);
-    }
   }
 
   /**
@@ -177,10 +136,10 @@ module dg {
       for (var i = 0; i < arguments.length; ++i) {
         let value = arguments[i];
         if ('object' == typeof value) {
-          if ('function' == typeof value.toJSON) {
+          if (null == value) {
+            value = 'null'
+          } else if ('function' == typeof value.toJSON) {
             value = value.toJSON();
-          } else if ('function' == typeof value.toString) {
-            value = value.toString();
           } else {
             value = JSON.stringify(value);
           }
@@ -277,30 +236,55 @@ module dg {
 
     export function run () {
       let argv = ARGV.split('_$$$_').filter(Boolean)
-      let to = setTimeout(() => { console.log('timeout') }, 100);
-      clearTimeout(to);
 
-      let i = setInterval(() => { console.log('beep'); }, 500);
 
-      setTimeout(function () {
-        console.log('b')
-      }, 200);
-      console.log('ok')
-      setTimeout(function () {
-        console.log('a')
-        setTimeout(function () {
-          console.log('c');
-          setTimeout(function () {
-            console.log('d')
-            try {
-            } catch (e) { console.error(e) }
-            let to = setTimeout(function () {
-              console.log('bye')
-            }, 1000)
-            clearTimeout(to);
-          }, 500);
-        }, 100);
-      }, 100);
+      function listen (addr, done) {
+        let ctx = new TCPContext();
+        let sock = new TCPSocket(ctx, TCPSocket.STREAM);
+        let body = [];
+        let to = null;
+
+        // poll
+        to = setInterval(function () {
+          let buf = null;
+          const PEEK = 3;
+          try {
+            buf = sock.read(1);
+            if (null != buf) {
+              if (buf.length) { body.push(buf); }
+              while (null != (buf = sock.read(1024))) {
+                if (buf.length) {
+                  body.push(buf);
+                }
+              }
+            }
+          } catch (e) {
+            return done(e, null);
+          }
+          if (body.length) {
+            done(null, body.splice(0, body.length).join(''));
+          }
+        });
+
+        // bind
+        return {
+          socket: sock.bind(addr),
+          close: () => {
+            clearInterval(to);
+            sock.close();
+            ctx.destroy();
+          }
+        }
+      }
+
+      $(function * () {
+        let n = 0;
+        let sock = listen('tcp://*:8080', function (err, buf) {
+          if (err) { console.error(err); throw err; }
+          console.log(buf)
+          if (++n == 3) { sock.close(); }
+        });
+      });
     }
   }
 
@@ -326,7 +310,9 @@ module dg {
      * @api private
      */
 
-    let queue = [];
+    export var queue = Object.create(Array.prototype, {
+      constructor: {value: function Queue () {} }
+    });
 
     /**
      * Runs the main program loop
@@ -335,6 +321,7 @@ module dg {
      */
 
     export function run () {
+      const MAX_THREAD = 2;
       // prevent duplicate runs
       if (null != main) {
         return;
@@ -365,7 +352,9 @@ module dg {
      */
 
     export function cancel (idx) {
-      return queue.splice(idx, 1);
+      delete queue[idx];
+      queue.splice(idx, 1);
+      queue = queue.filter(Boolean);
     }
 
     /**
@@ -385,7 +374,7 @@ module dg {
         queue.inframe = true;
         task(function (err, done) {
           if (err) { return dg.error(err.stack); }
-          if (done) { queue[i] = null; }
+          if (done) { delete queue[i]; }
           queue.inframe = false;
         });
       })(queue[i], i);
@@ -400,20 +389,14 @@ module dg {
      */
 
     function runtime (done) {
-      var stack = [];
-      var stop = 0;
-      do Thread(function () {
-        stop = 1
-        try {
-          program.run();
-          while (dequeue()) ;
-        } catch (e) {
-          dg.error(e.stack);
-          return done(e);
-        }
-
-        done();
-      }).run(); while (1 != stop);
+      try {
+        program.run();
+        while (dequeue()) ;
+      } catch (e) {
+        dg.error(e.stack ? e.stack : e);
+        return done(e);
+      }
+      done();
     }
   }
 
@@ -506,7 +489,11 @@ module dg {
      */
 
     Timer.prototype.clear = function () {
-      if (true == this.active) { loop.cancel(this.lid); }
+      if (true == this.active) {
+        this.active = false;
+        this.interval = false;
+        loop.cancel(this.lid);
+      }
       return this;
     };
 
@@ -518,23 +505,33 @@ module dg {
 
     Timer.prototype.init = function () {
       var stop = Date.now() + this.ms;
-      var fns = this.fns.slice();
       var self = this;
       this.active = true;
       this.lid = loop.enqueue(function (next) {
         var err = null;
-        if (Date.now() < stop) {
+        var fns = self.fns.slice();
+        if (false == self.active) {
+          self.clear();
+          next(null, true);
+        } if (Date.now() < stop) {
           next(null, false);
-        } else while (fns.length) {
-          let fn = fns.shift();
-          try { fn(); next(null, true); }
-          catch (e) { next(e, true); }
-          if (self.interval) {
-            self.init();
+        } else if (fns.length) {
+          while (fns.length) {
+            let fn = fns.shift();
+            try { fn(); }
+            catch (e) { return next(e, true); }
           }
-          self.active = false;
+
+          if (self.interval) {
+            next(null, true);
+            self.init();
+          } else {
+            self.active = false;
+            next(null, false);
+          }
         }
       });
+
       return this;
     };
 
@@ -595,5 +592,5 @@ module dg {
  * Initialize degossip
  */
 
-(dg.init());
+dg.init();
 

@@ -9,8 +9,9 @@
 #include "v8macro.h"
 
 #include "io.h"
-#include "thread.h"
 #include "tcp.h"
+#include "sys.h"
+#include "thread.h"
 
 #define BUFMAX 4096
 
@@ -32,6 +33,15 @@ dg_v8_bindings_init (dg_t *dg) {
   {
     _set_argv(dg);
     _set_env(dg);
+  }
+
+  // system
+  {
+    // functions
+    DG_V8_SET_BINDING(dg, "system", V8FUNCTION(dg_v8_sys_system));
+
+    // constants
+    DG_V8_SET_BINDING(dg, "BUFSIZ", V8NUMBER(BUFSIZ));
   }
 
   // io
@@ -82,9 +92,14 @@ dg_v8_bindings_init (dg_t *dg) {
     TCPSocket->SetClassName(V8STRING("TCPSocket"));
     TCPSocket->InstanceTemplate()->SetInternalFieldCount(1);
 
+    // TCPContext prototype
+    TCPContextPrototype->Set(V8STRING("destroy"), V8FUNCTION(dg_v8_tcp_destroy_context));
+
     // TCPSocket prototype
     TCPSocketPrototype->Set(V8STRING("bind"), V8FUNCTION(dg_v8_tcp_socket_bind));
     TCPSocketPrototype->Set(V8STRING("read"), V8FUNCTION(dg_v8_tcp_socket_recv));
+    TCPSocketPrototype->Set(V8STRING("write"), V8FUNCTION(dg_v8_tcp_socket_send));
+    TCPSocketPrototype->Set(V8STRING("close"), V8FUNCTION(dg_v8_tcp_socket_close));
 
     // constants
     TCPSocket->Set(V8STRING("REQUEST"), V8NUMBER(ZMQ_REQ));
@@ -97,6 +112,7 @@ dg_v8_bindings_init (dg_t *dg) {
     TCPSocket->Set(V8STRING("PULL"), V8NUMBER(ZMQ_PULL));
     TCPSocket->Set(V8STRING("PAIR"), V8NUMBER(ZMQ_PAIR));
     TCPSocket->Set(V8STRING("STREAM"), V8NUMBER(ZMQ_STREAM));
+    TCPSocket->Set(V8STRING("NOWAIT"), V8NUMBER(ZMQ_DONTWAIT));
 
     // bindings
     DG_V8_SET_BINDING(dg, "TCPContext", TCPContext);
