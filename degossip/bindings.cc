@@ -112,6 +112,7 @@ dg_v8_bindings_init (dg_t *dg) {
     TCPSocket->Set(V8STRING("PULL"), V8NUMBER(ZMQ_PULL));
     TCPSocket->Set(V8STRING("PAIR"), V8NUMBER(ZMQ_PAIR));
     TCPSocket->Set(V8STRING("STREAM"), V8NUMBER(ZMQ_STREAM));
+    TCPSocket->Set(V8STRING("SEND_MORE"), V8NUMBER(ZMQ_SNDMORE));
     TCPSocket->Set(V8STRING("NOWAIT"), V8NUMBER(ZMQ_DONTWAIT));
 
     // bindings

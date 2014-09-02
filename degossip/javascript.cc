@@ -44,7 +44,7 @@ dg_script (dg_t *dg, const char *path) {
 
   // scope
   v8::Isolate::Scope isolate_scope(isolate);
-  v8::EscapableHandleScope handle_scope(isolate);
+  v8::HandleScope handle_scope(isolate);
 
   // v8ify source and basename
   v8::Handle<v8::String> str = v8::String::NewFromUtf8(isolate, src);
@@ -73,16 +73,20 @@ dg_script (dg_t *dg, const char *path) {
   // face palm
   if (result.IsEmpty()) {
     if (tc.HasCaught()) {
+      v8::Unlocker unlock(isolate);
       dg_script_report_exception(isolate, &tc);
       return 1;
     }
   }
 
+  v8::Unlocker unlock(isolate);
   return 0;
 }
 
 void
 dg_script_report_exception (v8::Isolate *isolate, v8::TryCatch *tc) {
+  v8::Locker lock(isolate);
+
   // scope
   v8::Isolate::Scope isolate_scope(isolate);
   v8::HandleScope handle_scope(isolate);
@@ -119,5 +123,7 @@ dg_script_report_exception (v8::Isolate *isolate, v8::TryCatch *tc) {
       fprintf(stderr, "%s\n", stack_trace_string);
     }
   }
+
+  v8::Unlocker unlock(isolate);
 }
 

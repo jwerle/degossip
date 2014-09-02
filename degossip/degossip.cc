@@ -10,6 +10,24 @@
 #define DG_JS_PATH ""
 #endif
 
+class MallocArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
+  public:
+  virtual void *
+  Allocate (size_t size) {
+    return malloc(size);
+  }
+
+  virtual void *
+  AllocateUninitialized (size_t size) {
+    return malloc(size);
+  }
+
+  virtual void
+  Free (void *data, size_t size) {
+    free(data);
+  }
+};
+
 dg_t *
 dg_alloc (int argc, char **argv, char **env) {
   // alloc
@@ -24,6 +42,8 @@ dg_alloc (int argc, char **argv, char **env) {
   self->argc = argc;
   self->argv = argv;
   self->env = env;
+
+  v8::V8::SetArrayBufferAllocator(new MallocArrayBufferAllocator());
 
   // lock isolate
   v8::Locker lock(self->isolate);

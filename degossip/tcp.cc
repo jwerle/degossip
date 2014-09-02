@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <errno.h>
 #include <zmq.h>
 
@@ -170,39 +171,83 @@ dg_v8_tcp_socket_recv (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
   size_t size = (size_t) arguments[0]->ToNumber()->Int32Value();
 
   // buf
-  char buf[size];
-
-  // return value
-  v8::Handle<v8::Value> ret;
+  unsigned char buf[size];
 
   // flags
   int flags = arguments[1]->ToNumber()->Int32Value();
 
   // read
   size_t nread = zmq_recv(socket, buf, size, flags);
+
+  // receive more predicate
+  int rmore = 0;
+  size_t rmore_size = sizeof(rmore);
+
   if (-1 == nread) {
     nread = 0;
     if (ZMQ_DONTWAIT != (flags & ZMQ_DONTWAIT)) {
       V8THROW(strerror(errno));
     }
+  //} else if (1 == zmq_getsockopt(socket, ZMQ_RCVMORE, &rmore, &rmore_size)) {
+      //V8THROW(strerror(errno));
   }
 
-  buf[nread] = '\0';
+  //buf[nread] = '\0';
+
+  // unlock isolate
+  v8::Unlocker unlock(isolate);
 
   if (nread > 0) {
-    ret = V8STRING(buf);
+    //V8RETURN(arguments, V8STRING(buf));
+    v8::Handle<v8::Object> data = v8::Object::New(isolate);
+    data->SetIndexedPropertiesToExternalArrayData(
+        buf, v8::kExternalUnsignedByteArray,
+        nread);
+    V8RETURN(arguments, data);
   } else {
-    ret = V8NULL();
+    V8RETURN(arguments, V8NULL());
+  }
+
+
+}
+
+void
+dg_v8_tcp_socket_send (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
+  // isolate
+  v8::Isolate *isolate = arguments.GetIsolate();
+
+  // lock
+  v8::Locker lock(isolate);
+
+  // scope
+  v8::Isolate::Scope isolate_scope(isolate);
+  v8::HandleScope handle_scope(isolate);
+
+  // `this'
+  v8::Handle<v8::Object> self = arguments.This();
+
+  // buf
+  v8::String::Utf8Value buf(arguments[0]);
+
+  // flags
+  int flags = arguments[1]->ToNumber()->Int32Value();
+
+  // unwrap
+  void *socket = (void *) V8UNWRAP(self);
+
+  // send
+  int size = zmq_send(socket, *buf, strlen(*buf) + 1, flags);
+
+  if (size < 0) {
+    if (ZMQ_DONTWAIT != (flags & ZMQ_DONTWAIT)) {
+      V8THROW(strerror(errno));
+    }
   }
 
   // unlock isolate
   v8::Unlocker unlock(isolate);
 
-  V8RETURN(arguments, ret);
-}
-
-void
-dg_v8_tcp_socket_send (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
+  V8RETURN(arguments, V8NUMBER(size));
 }
 
 void
@@ -223,11 +268,11 @@ dg_v8_tcp_socket_close (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
   // unwrap
   void *socket = (void *) V8UNWRAP(self);
 
-  // unlock isolate
-  v8::Unlocker unlock(isolate);
-
   // close
   zmq_close(socket);
+
+  // unlock isolate
+  v8::Unlocker unlock(isolate);
 
   V8RETURN(arguments, self);
 }

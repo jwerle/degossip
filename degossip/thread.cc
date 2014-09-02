@@ -53,12 +53,13 @@ onthread (void *data) {
 
   cb->Call(ref, 1, args);
 
-  if (tc.HasCaught()) {
-     //@TODO - handle exception
-  }
-
-  nanosleep(&req, &rem);
   v8::Unlocker unlock(isolate);
+  if (tc.HasCaught()) {
+    dg_script_report_exception(isolate, &tc);
+     //@TODO - handle exception
+  } else {
+    nanosleep(&req, &rem);
+  }
 
   pthread_exit(NULL);
 

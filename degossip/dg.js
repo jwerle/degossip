@@ -9,6 +9,8 @@ GeneratorFunction = (function * () {}).constructor;
 Function.prototype.toString =
 Function.prototype.toJSON = () => '[Function'+ (this.name ? ': '+ this.name : '') +']';
 
+Array.prototype.toJSON = () => '['+ this.join(', ') + ']';
+
 /**
  * `degossip' interface
  *
@@ -23,6 +25,9 @@ module dg {
   let pop = bind(Array.prototype.pop);
   let each = bind(Array.prototype.forEach);
   let slice = bind(Array.prototype.slice);
+  let map = bind(Array.prototype.map);
+  let concat = bind(Array.prototype.concat);
+  let trim = bind(String.prototype.trim);
 
   /**
    * Creates a generator context or wraps
@@ -237,6 +242,78 @@ module dg {
     export function run () {
       let argv = ARGV.split('_$$$_').filter(Boolean)
 
+      {
+        let ctx = new TCPContext();
+        let sock = new TCPSocket(ctx, TCPSocket.STREAM);
+        let buf = null;
+        let id = 0;
+        let first = 0;
+        sock.bind('tcp://*:8080');
+
+        function compare (a, b) {
+          if (null == b || a == null) { return 0; }
+          let len = slice(a).length;
+          for (var i = 0 ; i < len; ++i) {
+            if (a[i] != b[i]) { return 0; }
+          }
+          return 1;
+        }
+
+        function assert (e) {
+          if (!e) { throw new Error("assertion error"); }
+        }
+
+        function array (a) {
+          if (null == a) { return Array(); }
+          if (undefined == a.length) { a.length = Object.keys(a).length; }
+          return slice(a);
+        }
+
+        function recv () {
+          let size = 6;
+          let msg = Array(size);
+
+          for (var i = 0; i < size; ++i) {
+            let buf = sock.read(BUFSIZ);
+            msg[i] = array(buf);
+          }
+
+          return {
+            //id: msg[4],
+            id: new Uint8Array(msg[4]),
+            buffer: new Uint8Array(msg[3])
+          };
+        }
+
+
+        while (1) {
+          buf = recv();
+          console.log(buf.id)
+          sock.write(buf.id, TCPSocket.SEND_MORE);
+          sock.write("wooooooo", TCPSocket.SEND_MORE);
+          sock.write(buf.id, TCPSocket.SEND_MORE);
+          sock.write('', TCPSocket.SEND_MORE);
+          console.log(map(buf.buffer, (ch) => String.fromCharCode(ch)).join(''))
+        }
+        return;
+
+        buf.length = Object.keys(buf).length;
+        id.length = Object.keys(id).length;
+
+        id = slice(id);
+        buf = slice(buf);
+
+        let uid = new Uint8Array(id);
+        let ubuf = new Uint8Array(buf);
+        console.log(
+          map(ubuf, b => b)
+          .filter(Boolean)
+          .map(ch => String.fromCharCode(ch))
+        )
+        //console.log(map(u, b => String.fromCharCode(b)))
+      }
+      return;
+
 
       function listen (addr, done) {
         let ctx = new TCPContext();
@@ -246,29 +323,33 @@ module dg {
 
         // poll
         to = setInterval(function () {
-          let buf = null;
-          const PEEK = 3;
-          try {
-            buf = sock.read(1);
-            if (null != buf) {
-              if (buf.length) { body.push(buf); }
-              while (null != (buf = sock.read(1024))) {
-                if (buf.length) {
-                  body.push(buf);
+          //for (var i = 0; i < 4; ++i) Thread(function () {
+            let buf = null;
+            const PEEK = 3;
+            try {
+              buf = sock.read(1);
+              if (null != buf) {
+                if (buf.length) { body.push(buf); }
+                while (null != (buf = sock.read(1024))) {
+                  if (buf.length) {
+                    body.push(buf);
+                  }
                 }
               }
+            } catch (e) {
+              return done(e, null);
             }
-          } catch (e) {
-            return done(e, null);
-          }
-          if (body.length) {
-            done(null, body.splice(0, body.length).join(''));
-          }
+            if (body.length) {
+              done(null, body.splice(0, body.length).join(''));
+            }
+          //}).run()
         });
 
         // bind
         return {
           socket: sock.bind(addr),
+          read: sock.read.bind(sock),
+          write: sock.write.bind(sock),
           close: () => {
             clearInterval(to);
             sock.close();
@@ -280,8 +361,9 @@ module dg {
       $(function * () {
         let n = 0;
         let sock = listen('tcp://*:8080', function (err, buf) {
-          if (err) { console.error(err); throw err; }
-          console.log(buf)
+          if (err) { console.error('err', err); throw err; }
+          console.log('s', sock.write("foo\n", TCPSocket.SEND_MORE));
+          console.log('b', buf)
           if (++n == 3) { sock.close(); }
         });
       });
@@ -373,7 +455,7 @@ module dg {
         }
         queue.inframe = true;
         task(function (err, done) {
-          if (err) { return dg.error(err.stack); }
+          if (err) { return dg.error(err.stack ? err.stack : err); }
           if (done) { delete queue[i]; }
           queue.inframe = false;
         });
