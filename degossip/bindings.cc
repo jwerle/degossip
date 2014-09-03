@@ -96,6 +96,7 @@ dg_v8_bindings_init (dg_t *dg) {
     TCPContextPrototype->Set(V8STRING("destroy"), V8FUNCTION(dg_v8_tcp_destroy_context));
 
     // TCPSocket prototype
+    TCPSocketPrototype->Set(V8STRING("connect"), V8FUNCTION(dg_v8_tcp_socket_connect));
     TCPSocketPrototype->Set(V8STRING("bind"), V8FUNCTION(dg_v8_tcp_socket_bind));
     TCPSocketPrototype->Set(V8STRING("read"), V8FUNCTION(dg_v8_tcp_socket_recv));
     TCPSocketPrototype->Set(V8STRING("write"), V8FUNCTION(dg_v8_tcp_socket_send));

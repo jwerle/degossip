@@ -111,18 +111,14 @@ dg_v8_tcp_socket_bind (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
   // isolate
   v8::Isolate *isolate = arguments.GetIsolate();
 
-  // lock
-  v8::Locker lock(isolate);
-
   // scope
-  v8::Isolate::Scope isolate_scope(isolate);
-  v8::HandleScope handle_scope(isolate);
+  V8SCOPE(arguments);
 
   // `this'
   v8::Handle<v8::Object> self = arguments.This();
 
   if (1 != arguments.Length()) {
-    V8THROW("Expecting 1 arguments.");
+    V8THROW("Expecting 1 argument.");
     v8::Unlocker unlock(isolate);
     return;
   }
@@ -138,6 +134,39 @@ dg_v8_tcp_socket_bind (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
   }
 
   // unlock isolate
+  v8::Unlocker unlock(isolate);
+
+  V8RETURN(arguments, self);
+}
+
+void
+dg_v8_tcp_socket_connect (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
+  // isolate
+  v8::Isolate *isolate = arguments.GetIsolate();
+
+  // scope
+  V8SCOPE(arguments);
+
+  // `this'
+  v8::Handle<v8::Object> self = arguments.This();
+
+  if (1 != arguments.Length()) {
+    V8THROW("Expecting 1 argument.");
+    v8::Unlocker unlock(isolate);
+    return;
+  }
+
+  // unwrap
+  void *socket = (void *) V8UNWRAP(self);
+
+  // addr
+  v8::String::Utf8Value addr(arguments[0]);
+
+  if (0 != zmq_connect(socket, (const char *) *addr)) {
+    V8THROW(strerror(errno));
+  }
+
+  // unlock
   v8::Unlocker unlock(isolate);
 
   V8RETURN(arguments, self);
@@ -171,7 +200,7 @@ dg_v8_tcp_socket_recv (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
   size_t size = (size_t) arguments[0]->ToNumber()->Int32Value();
 
   // buf
-  unsigned char buf[size];
+  char buf[size];
 
   // flags
   int flags = arguments[1]->ToNumber()->Int32Value();
@@ -192,7 +221,7 @@ dg_v8_tcp_socket_recv (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
       //V8THROW(strerror(errno));
   }
 
-  //buf[nread] = '\0';
+  buf[nread] = '\0';
 
   // unlock isolate
   v8::Unlocker unlock(isolate);
@@ -226,17 +255,30 @@ dg_v8_tcp_socket_send (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
   // `this'
   v8::Handle<v8::Object> self = arguments.This();
 
-  // buf
-  v8::String::Utf8Value buf(arguments[0]);
-
   // flags
   int flags = arguments[1]->ToNumber()->Int32Value();
 
   // unwrap
   void *socket = (void *) V8UNWRAP(self);
 
-  // send
-  int size = zmq_send(socket, *buf, strlen(*buf) + 1, flags);
+  // sent size
+  int size = 0;
+
+  if (arguments[0]->IsObject()) {
+    v8::Handle<v8::Object> source = arguments[0]->ToObject();
+    size_t len = source->GetIndexedPropertiesExternalArrayDataLength();
+    char buf[len];
+    memcpy(buf,
+        static_cast<char *>(source->GetIndexedPropertiesExternalArrayData()),
+        len);
+    buf[len] = '\0';
+    // send
+    size = zmq_send(socket, buf, len + 1, flags);
+  } else if (arguments[0]->IsString()) {
+    v8::String::Utf8Value buf(arguments[0]);
+    size_t len = strlen(*buf);
+    size = zmq_send(socket, *buf, len, flags);
+  }
 
   if (size < 0) {
     if (ZMQ_DONTWAIT != (flags & ZMQ_DONTWAIT)) {

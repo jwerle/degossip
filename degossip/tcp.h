@@ -23,6 +23,9 @@ void
 dg_v8_tcp_socket_bind (const v8::FunctionCallbackInfo<v8::Value> &);
 
 void
+dg_v8_tcp_socket_connect (const v8::FunctionCallbackInfo<v8::Value> &);
+
+void
 dg_v8_tcp_socket_recv (const v8::FunctionCallbackInfo<v8::Value> &);
 
 void

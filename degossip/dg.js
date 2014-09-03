@@ -240,81 +240,35 @@ module dg {
      */
 
     export function run () {
-      let argv = ARGV.split('_$$$_').filter(Boolean)
+      let argv = ARGV.split('_$$$_').filter(Boolean);
+      let ctx = new TCPContext();
 
       {
-        let ctx = new TCPContext();
-        let sock = new TCPSocket(ctx, TCPSocket.STREAM);
-        let buf = null;
-        let id = 0;
-        let first = 0;
+        let sock = new TCPSocket(ctx, TCPSocket.REPLY);
         sock.bind('tcp://*:8080');
+        loop.enqueue(function (done) {
+            let buf = sock.read(256, TCPSocket.NOWAIT);
+          console.log('poll', buf)
+            if (buf) {
+              console.log(buf);
+            }
+            done();
+        });
 
-        function compare (a, b) {
-          if (null == b || a == null) { return 0; }
-          let len = slice(a).length;
-          for (var i = 0 ; i < len; ++i) {
-            if (a[i] != b[i]) { return 0; }
-          }
-          return 1;
+        {
+          let sock = new TCPSocket(ctx, TCPSocket.REQUEST);
+          sock.connect('tcp://127.0.0.1:8080');
+          loop.enqueue(function (done) {
+            sock.write('foo');
+          });
         }
-
-        function assert (e) {
-          if (!e) { throw new Error("assertion error"); }
-        }
-
-        function array (a) {
-          if (null == a) { return Array(); }
-          if (undefined == a.length) { a.length = Object.keys(a).length; }
-          return slice(a);
-        }
-
-        function recv () {
-          let size = 6;
-          let msg = Array(size);
-
-          for (var i = 0; i < size; ++i) {
-            let buf = sock.read(BUFSIZ);
-            msg[i] = array(buf);
-          }
-
-          return {
-            //id: msg[4],
-            id: new Uint8Array(msg[4]),
-            buffer: new Uint8Array(msg[3])
-          };
-        }
-
-
-        while (1) {
-          buf = recv();
-          console.log(buf.id)
-          sock.write(buf.id, TCPSocket.SEND_MORE);
-          sock.write("wooooooo", TCPSocket.SEND_MORE);
-          sock.write(buf.id, TCPSocket.SEND_MORE);
-          sock.write('', TCPSocket.SEND_MORE);
-          console.log(map(buf.buffer, (ch) => String.fromCharCode(ch)).join(''))
-        }
-        return;
-
-        buf.length = Object.keys(buf).length;
-        id.length = Object.keys(id).length;
-
-        id = slice(id);
-        buf = slice(buf);
-
-        let uid = new Uint8Array(id);
-        let ubuf = new Uint8Array(buf);
-        console.log(
-          map(ubuf, b => b)
-          .filter(Boolean)
-          .map(ch => String.fromCharCode(ch))
-        )
-        //console.log(map(u, b => String.fromCharCode(b)))
       }
+
+      {
+        //let sock = new TCPSocket(ctx, TCPSocket.REQ)
+      }
+
       return;
-
-
       function listen (addr, done) {
         let ctx = new TCPContext();
         let sock = new TCPSocket(ctx, TCPSocket.STREAM);

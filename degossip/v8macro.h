@@ -23,9 +23,10 @@
 #define DG_V8_GET_BINDING(dg, k) dg->global->Get(V8STRING(k))
 
 #define V8SCOPE(args) ({                                                       \
-  v8::Isolate *iso = args.GetIsolate();                                        \
-  v8::Isolate::Scope isolate_scope(iso);                                       \
-  v8::HandleScope scope(iso);                                                  \
+  v8::Isolate *isolate = args.GetIsolate();                                    \
+  v8::Locker lock(isolate);                                                    \
+  v8::Isolate::Scope isolate_scope(isolate);                                   \
+  v8::HandleScope scope(isolate);                                              \
 })
 
 
