@@ -242,26 +242,58 @@ module dg {
     export function run () {
       let argv = ARGV.split('_$$$_').filter(Boolean);
       let ctx = new TCPContext();
+      let spawned = 0
 
       {
         let sock = new TCPSocket(ctx, TCPSocket.REPLY);
         sock.bind('tcp://*:8080');
-        loop.enqueue(function (done) {
-            let buf = sock.read(256, TCPSocket.NOWAIT);
-          console.log('poll', buf)
-            if (buf) {
+        setTimeout(function () {
+          loop.enqueue(function (done) {
+            let buf = null;
+            if (0 == spawned) { return done(); }
+            try {
+              console.log('read')
+              buf = sock.read(256, TCPSocket.NOWAIT);
               console.log(buf);
+              if (null != buf) {
+                console.log('request', buf);
+                sock.write('hi');
+              }
+            } catch (e) {
+              console.error(e)
             }
             done();
-        });
-
-        {
-          let sock = new TCPSocket(ctx, TCPSocket.REQUEST);
-          sock.connect('tcp://127.0.0.1:8080');
-          loop.enqueue(function (done) {
-            sock.write('foo');
           });
-        }
+        }, 10);
+
+        setTimeout(function () {
+          console.log('spawn')
+          spawned = 1
+          new Thread((ctx) => {
+            let sock = new TCPSocket(ctx, TCPSocket.REQUEST);
+            let log = (ch) => { system('echo '+ ch +' >> out.log'); }
+
+            log('')
+            sock.connect('tcp://127.0.0.1:8080');
+            log('connecting...');
+            let buf = null;
+            try {
+              log('write...');
+              let n = sock.write('foo', TCPSocket);
+              log(n +' written');
+              log('read...');
+              buf = sock.read(256, TCPSocket);
+              log('read: '+ buf);
+              if (null != buf) {
+                log(buf)
+              }
+            } catch (e) {
+              if (-1 == e.indexOf('156384763')) {
+                log(e);
+              }
+            }
+          }).run(ctx);
+        }, 1);
       }
 
       {
@@ -542,10 +574,10 @@ module dg {
     Timer.prototype.init = function () {
       var stop = Date.now() + this.ms;
       var self = this;
+      var fns = self.fns.slice();
       this.active = true;
       this.lid = loop.enqueue(function (next) {
         var err = null;
-        var fns = self.fns.slice();
         if (false == self.active) {
           self.clear();
           next(null, true);
@@ -563,6 +595,7 @@ module dg {
             self.init();
           } else {
             self.active = false;
+            clearTimeout(self)
             next(null, false);
           }
         }

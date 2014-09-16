@@ -227,12 +227,12 @@ dg_v8_tcp_socket_recv (const v8::FunctionCallbackInfo<v8::Value> &arguments) {
   v8::Unlocker unlock(isolate);
 
   if (nread > 0) {
-    //V8RETURN(arguments, V8STRING(buf));
-    v8::Handle<v8::Object> data = v8::Object::New(isolate);
-    data->SetIndexedPropertiesToExternalArrayData(
-        buf, v8::kExternalUnsignedByteArray,
-        nread);
-    V8RETURN(arguments, data);
+    V8RETURN(arguments, V8STRING(buf));
+    //v8::Handle<v8::Object> data = v8::Object::New(isolate);
+    //data->SetIndexedPropertiesToExternalArrayData(
+        //buf, v8::kExternalUnsignedByteArray,
+        //nread);
+    //V8RETURN(arguments, data);
   } else {
     V8RETURN(arguments, V8NULL());
   }
